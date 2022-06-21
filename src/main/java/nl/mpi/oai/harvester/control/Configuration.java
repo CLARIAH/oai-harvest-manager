@@ -40,13 +40,15 @@ import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 
-import static org.mockito.Mockito.reset;
-
-import java.io.BufferedWriter;
-import java.io.FileWriter;
 import java.io.IOException;
+import java.io.BufferedWriter;
 import java.io.PrintWriter;
+import java.io.FileWriter;
+import java.lang.reflect.InvocationTargetException;
 import java.net.MalformedURLException;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -59,6 +61,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.Arrays;
 
 
 /**
@@ -119,7 +122,7 @@ public class Configuration {
     /**
      * Map file
      */
-    
+
     private String mapFile = "map.csv";
 
     /**
@@ -145,7 +148,7 @@ public class Configuration {
      * @throws IOException                  problem accessing the configuration
      */
     public Configuration readConfig(String filename) throws ParserConfigurationException,
-            SAXException, XPathExpressionException, IOException {
+            SAXException, XPathExpressionException, IOException, ClassNotFoundException {
         DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
         DocumentBuilder db = dbf.newDocumentBuilder();
         Document doc = db.parse(filename);
@@ -232,11 +235,54 @@ public class Configuration {
     }
 
     /**
+     * Load and return the designated action from a given jar file either on disk.
+     * If the type casting gives an error, null will be returned which will be handled by the caller.
+     *
+     * @param file      The string value of the jar file path
+     * @param className The external Action class name we are going to load
+     * @return Return the loaded action or null when the class is not of type Action
+     */
+    private Action loadClassFromJarFile(String file, String className) throws
+            IOException,
+            ClassNotFoundException,
+            InstantiationException,
+            IllegalAccessException,
+            NoSuchMethodException,
+            InvocationTargetException {
+
+        Class<?> cls;
+        if (file == null) {
+            logger.info("No jar file given, loading from class path;");
+            cls = Class.forName(className);
+        } else {
+            // use ArrayList to add URL to Array
+            URL[] urls = new URL[0];
+            ArrayList<URL> urlArrayList = new ArrayList<>(Arrays.asList(urls));
+            urlArrayList.add(new URL("jar:file:" + file + "!/"));
+            urls = urlArrayList.toArray(urls);
+
+            // init class loader from all the JARs
+            URLClassLoader cl = URLClassLoader.newInstance(urls);
+
+            className = className.replace('/', '.');
+            logger.info("Loading class [" + className + "].");
+            cls = cl.loadClass(className);
+        }
+        
+        try {
+            return (Action) cls.getDeclaredConstructor().newInstance();
+        } catch (ClassCastException ex) {
+            logger.error("The given class [" + className + "] is not a valid Action.class");
+            return null;
+        }
+    }
+
+    /**
      * Parse the actions section only.
      *
      * @param base top node of the actions section
      */
-    private void parseActions(Node base) throws XPathExpressionException {
+    private void parseActions(Node base) throws XPathExpressionException, IOException, ClassNotFoundException {
         NodeList nodeList = (NodeList) xpath.evaluate("./format", base,
                 XPathConstants.NODESET);
         for (int i = 0; i < nodeList.getLength(); i++) {
@@ -311,6 +357,25 @@ public class Configuration {
                         } catch (Exception ex) {
                             logger.error(ex);
                         }
+                    } else {
+                        // load external actions according to the config file, from jar
+                        String jarLocation = Util.getNodeText(xpath, "./@file", s);
+                        logger.info("jar found in " + jarLocation);
+                        try {
+                            logger.info("loading class [" + actionType + "] from jar [" + jarLocation + "]");
+                            act = loadClassFromJarFile(jarLocation, actionType);
+                            logger.info("class [" + actionType + "] loaded from jar [" + jarLocation + "]");
+                        } catch (MalformedURLException e) {
+                            logger.error("Cannot load external action from external jar [" + jarLocation + "], URL malformed.", e);
+                        } catch (InvocationTargetException e) {
+                            logger.error("Cannot load external action from external jar [" + jarLocation + "], target invocation failed. ", e);
+                        } catch (InstantiationException e) {
+                            logger.error("Cannot load external action class [" + actionType + "], cannot instantiate it. ", e);
+                        } catch (IllegalAccessException e) {
+                            logger.error("Cannot load external action from external jar [" + jarLocation + "], cannot access model " + actionType + ". ", e);
+                        } catch (NoSuchMethodException e) {
+                            logger.error("Cannot load external action from external jar [" + jarLocation + "], model " + actionType + ". No such method. ", e);
+                        }
                     }
                     if (act != null)
                         ac.add(act);
@@ -318,7 +383,7 @@ public class Configuration {
                         logger.error("Unknown action[" + actionType + "]");
                 }
 
-                ActionSequence ap = new ActionSequence(format, ac.toArray(new Action[ac.size()]),
+                ActionSequence ap = new ActionSequence(format, ac.toArray(new Action[0]),
                         getResourcePoolSize());
                 actionSequences.add(ap);
             } else {
@@ -336,7 +401,6 @@ public class Configuration {
     private void parseProviders(Node base) throws
             IOException,
             XPathExpressionException,
-            MalformedURLException,
             ParserConfigurationException {
 
         // check if there is an import node
@@ -345,24 +409,24 @@ public class Configuration {
         if (importNode == null) {
             logger.debug("No import node in the configuration file");
         } else {
-            final Node includeSetTypesNode = (Node) xpath.evaluate("./includeOaiPmhSetTypes", importNode,XPathConstants.NODE);
+            final Node includeSetTypesNode = (Node) xpath.evaluate("./includeOaiPmhSetTypes", importNode, XPathConstants.NODE);
             final Collection<String> includeSetTypes;
-            if(includeSetTypesNode != null) {
+            if (includeSetTypesNode != null) {
                 includeSetTypes = Splitter.onPattern("\\s*,\\s*").splitToList(includeSetTypesNode.getTextContent());
             } else {
-                 includeSetTypes= DEFAULT_INCLUDE_SETS;
+                includeSetTypes = DEFAULT_INCLUDE_SETS;
             }
             logger.debug("Included set types: {}", includeSetTypes);
-            
-            final Node excludeSetTypesNode = (Node) xpath.evaluate("./excludeOaiPmhSetTypes", importNode,XPathConstants.NODE);
+
+            final Node excludeSetTypesNode = (Node) xpath.evaluate("./excludeOaiPmhSetTypes", importNode, XPathConstants.NODE);
             final Collection<String> excludeSetTypes;
-            if(excludeSetTypesNode != null) {
+            if (excludeSetTypesNode != null) {
                 excludeSetTypes = Splitter.onPattern("\\s*,\\s*").splitToList(excludeSetTypesNode.getTextContent());
             } else {
                 excludeSetTypes = DEFAULT_EXCLUDE_SETS;
             }
             logger.debug("Excluded set types: {}", excludeSetTypes);
-            
+
             // within the import node, look for the mandatory registry node   
             Node registryNode = (Node) xpath.evaluate("./registry", importNode,
                     XPathConstants.NODE);
@@ -378,7 +442,7 @@ public class Configuration {
                 } else {
 
                     logger.info("Importing providers from registry at {}", rUrl);
-                    
+
                     // list of endpoints to be excluded
                     ArrayList<String> excludeSpec = new ArrayList<>();
 
@@ -416,7 +480,7 @@ public class Configuration {
                     }
                     // get the list of endpoints from the centre registry
                     registryReader = new RegistryReader(new java.net.URL(rUrl));
-                    final Map<String, Collection<CentreRegistrySetDefinition>> endPointOaiPmhSetMap 
+                    final Map<String, Collection<CentreRegistrySetDefinition>> endPointOaiPmhSetMap
                             = registryReader.getEndPointOaiPmhSetMap();
 
                     // use the list to create the list of endpoints to harvest from
@@ -455,32 +519,32 @@ public class Configuration {
                                 provider.setIncremental(isIncremental());
                                 provider.setScenario(getScenario());
                             }
-                            
+
                             //configure sets
                             final Collection<CentreRegistrySetDefinition> allSets
                                     = Optional.ofNullable(endPointOaiPmhSetMap.get(provUrl))
-                                            .orElse(Collections.emptySet());
-                            
-                            if(!allSets.isEmpty()) {
+                                    .orElse(Collections.emptySet());
+
+                            if (!allSets.isEmpty()) {
                                 //apply include/exclude config
                                 final Collection<CentreRegistrySetDefinition> includedSets
                                         = new HashSet<>(allSets);
-                                if(!includeSetTypes.contains("*")) {
+                                if (!includeSetTypes.contains("*")) {
                                     //reduce to entries with type matching entry from include types
                                     includedSets.removeIf(
                                             Predicates.not(s -> includeSetTypes.contains(s.getSetType())));
-                                }                            
-                                if(!excludeSetTypes.isEmpty()) {
+                                }
+                                if (!excludeSetTypes.isEmpty()) {
                                     includedSets.removeIf(s -> excludeSetTypes.contains(s.getSetType()));
-                                }                            
+                                }
 
                                 logger.debug("Sets for {}; before include/exclude filter: {}; after filter: {}", provUrl, allSets, includedSets);
 
-                                if(!includedSets.isEmpty()) {
+                                if (!includedSets.isEmpty()) {
                                     final String[] sets = includedSets.stream()
                                             .map(CentreRegistrySetDefinition::getSetSpec)
                                             .toArray(String[]::new);
-                                    if(sets.length > 0) {
+                                    if (sets.length > 0) {
                                         provider.setSets(sets);
                                     }
                                 }
@@ -508,9 +572,9 @@ public class Configuration {
 
             int timeout = (pTimeout != null) ? Integer.valueOf(pTimeout) : getTimeout();
             int maxRetryCount = (pMaxRetryCount != null) ? Integer.valueOf(pMaxRetryCount) : getMaxRetryCount();
-            int[] retryDelays = (pRetryDelays != null)?parseRetryDelays(pRetryDelays):getRetryDelays();
+            int[] retryDelays = (pRetryDelays != null) ? parseRetryDelays(pRetryDelays) : getRetryDelays();
             boolean exclusive = Boolean.parseBoolean(pExclusive);
-            String scenario = (pScenario != null) ?  pScenario : getScenario();
+            String scenario = (pScenario != null) ? pScenario : getScenario();
 
             if (pUrl == null) {
                 logger.error("Skipping provider " + pName + ": URL is missing");
@@ -580,7 +644,7 @@ public class Configuration {
             return "workspace";
         return s;
     }
-    
+
     public Map<String, OutputDirectory> getOutputDirectories() {
         return outputs;
     }
@@ -595,7 +659,7 @@ public class Configuration {
         if (s == null) return new int[]{0};
         String[] sa = s.split("\\s+");
         int[] da = new int[sa.length];
-        for (int i=0;i<sa.length;i++)
+        for (int i = 0; i < sa.length; i++)
             da[i] = Integer.valueOf(sa[i]);
         return da;
     }
@@ -650,12 +714,12 @@ public class Configuration {
         if (!Files.exists(p)) {
             PrintWriter map = null;
             try {
-                map = new PrintWriter(new FileWriter(mapFile,true));
+                map = new PrintWriter(new FileWriter(mapFile, true));
                 map.println("endpointUrl,directoryName,centreName,nationalProject");
             } catch (IOException e) {
                 logger.error("couldn't create an initial/default " + mapFile + " file: ", e);
             } finally {
-                if (map!=null)
+                if (map != null)
                     map.close();
             }
         }
@@ -715,7 +779,7 @@ public class Configuration {
             logger.warn("Incremental harvesting cannot be enabled ... needs to be finished!");
         return false;
     }
-    
+
     /**
      * Get dry run flag.
      */
@@ -723,7 +787,7 @@ public class Configuration {
         String s = settings.get(KnownOptions.DRYRUN.toString());
         return (s == null) ? false : Boolean.valueOf(s);
     }
-    
+
     /**
      * Get scenario.
      */
@@ -731,21 +795,21 @@ public class Configuration {
         String s = settings.get(KnownOptions.SCENARIO.toString());
         return (s == null) ? "ListIndentifiers" : s;
     }
-    
+
     /**
      * Get Registry Reader
      */
     public RegistryReader getRegistryReader() {
         return this.registryReader;
     }
-    
+
     /**
      * Has a Registry Reader?
      */
     public boolean hasRegistryReader() {
-        return (this.registryReader!=null);
+        return (this.registryReader != null);
     }
-    
+
 
     /**
      * Log parsed contents of the configuration.
