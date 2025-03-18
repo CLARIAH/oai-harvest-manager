@@ -2,9 +2,9 @@ FROM registry.gitlab.com/clarin-eric/docker-alpine-supervisor-java-base:openjdk1
 
 RUN apk add --no-cache gnu-libiconv
 WORKDIR /tmp/oai
-COPY ./target/oai-harvest-manager-1.2*.tar.gz /tmp/
+COPY ./target/oai-harvest-manager-1.3*.tar.gz /tmp/
 
-RUN tar -xzf /tmp/oai-harvest-manager-1.2*.tar.gz
+RUN tar -xzf /tmp/oai-harvest-manager-1.3*.tar.gz
 
 # app workdir
 RUN mkdir -p /app/workdir
