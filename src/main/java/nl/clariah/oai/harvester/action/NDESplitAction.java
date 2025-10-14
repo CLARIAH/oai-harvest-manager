@@ -16,10 +16,11 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-package nl.mpi.oai.harvester.action;
+package nl.clariah.oai.harvester.action;
 
 import nl.mpi.oai.harvester.metadata.Metadata;
 import nl.mpi.oai.harvester.metadata.Record;
+import nl.mpi.oai.harvester.action.Action;
 import nl.mpi.oai.harvester.utils.Queue;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;

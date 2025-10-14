@@ -1,22 +1,22 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
-
     <modelVersion>4.0.0</modelVersion>
     <groupId>nl.clariah</groupId>
-    <artifactId>harvest-manager</artifactId>
+    <artifactId>harvest-manager-nde</artifactId>
     <packaging>jar</packaging>
-    <version>2.0-RC1-SNAPSHOT</version>
-    <name>Harvest Manager</name>
-    <description>This application manages OAI-PMH harvesting workflows</description>
+    <version>2.0-nde</version>
+    <name>Adds NDE Support to Harvest Manager</name>
+    <description>This module adds NDE harvesting support to OAI-PMH harvesting workflows</description>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <versionNumber>${project.version}.${buildNumber}</versionNumber>
+<!--        <versionNumber>${project.version}.${buildNumber}</versionNumber>-->
+        <versionNumber>2.0-nde</versionNumber>
     </properties>
 
-    <scm>
-        <connection>scm:git:https://github.com/clarin-eric/oai-harvest-manager.git</connection>
-        <developerConnection>scm:git:https://github.com/clarin-eric/oai-harvest-manager.git</developerConnection>
-    </scm>
+<!--    <scm>-->
+<!--        <connection>scm:git:https://github.com/clarin-eric/oai-harvest-manager.git</connection>-->
+<!--        <developerConnection>scm:git:https://github.com/clarin-eric/oai-harvest-manager.git</developerConnection>-->
+<!--    </scm>-->
 
     <!-- REPOSITORIES -->
     <repositories>
@@ -63,11 +63,6 @@
             <groupId>nl.mpi</groupId>
             <artifactId>harvest-manager</artifactId>
             <version>2.0-RC1-SNAPSHOT</version>
-        </dependency>
-        <dependency>
-            <groupId>com.mashape.unirest</groupId>
-            <artifactId>unirest-java</artifactId>
-            <version>1.4.9</version>
         </dependency>
     </dependencies>
 
@@ -185,7 +180,8 @@
                             <Built-By>${user.name}</Built-By>
                             <Built-On>${maven.build.timestamp}</Built-On>
                             <Version>${project.version}</Version>
-                            <Revision>${buildNumber}</Revision>
+<!--                            <Revision>${buildNumber}</Revision>-->
+                            <Revision>2.0-nde</Revision>
                             <Class-Path>${project.artifactId}-${versionNumber}.jar</Class-Path>
                             <Class-Path>.</Class-Path>
                         </manifestEntries>
@@ -225,27 +221,27 @@
             for every build. Maven stores the ${buildNumber} variable. Please note
             that in this project the number is part of the the version number. On
             its turn, this number is reflected in the jar and the package names. -->
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>buildnumber-maven-plugin</artifactId>
-                <version>1.4</version>
-                <executions>
-                    <execution>
-                        <phase>validate</phase>
-                        <goals>
-                            <goal>create</goal>
-                        </goals>
-                        <configuration>
-                            <revisionOnScmFailure>none</revisionOnScmFailure>
-                            <shortRevisionLength>6</shortRevisionLength>
-                        </configuration>
-                    </execution>
-                </executions>
-                <configuration>
-                    <doCheck>false</doCheck>
-                    <doUpdate>false</doUpdate>
-                </configuration>
-            </plugin>
+<!--            <plugin>-->
+<!--                <groupId>org.codehaus.mojo</groupId>-->
+<!--                <artifactId>buildnumber-maven-plugin</artifactId>-->
+<!--                <version>1.4</version>-->
+<!--                <executions>-->
+<!--                    <execution>-->
+<!--                        <phase>validate</phase>-->
+<!--                        <goals>-->
+<!--                            <goal>create</goal>-->
+<!--                        </goals>-->
+<!--                        <configuration>-->
+<!--                            <revisionOnScmFailure>none</revisionOnScmFailure>-->
+<!--                            <shortRevisionLength>6</shortRevisionLength>-->
+<!--                        </configuration>-->
+<!--                    </execution>-->
+<!--                </executions>-->
+<!--                <configuration>-->
+<!--                    <doCheck>false</doCheck>-->
+<!--                    <doUpdate>false</doUpdate>-->
+<!--                </configuration>-->
+<!--            </plugin>-->
 
 
             <!-- Add and configure the plugin for Findbugs. You can run the Findbugs

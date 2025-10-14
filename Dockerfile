@@ -3,17 +3,19 @@ FROM registry.gitlab.com/clarin-eric/docker-alpine-supervisor-java-base:openjdk1
 RUN apk --no-cache add maven
 
 # install OAI Harvester
+# Fetch and unpack the OAI Harvester
+WORKDIR /tmp/oai
+RUN curl -L -o /tmp/oai-harvest-manager.tar.gz https://github.com/clarin-eric/harvest-manager/releases/download/v2.0-RC2/harvest-manager-2.0-RC2-SNAPSHOT.fb13eb.tar.gz && \
+    tar -xzf /tmp/oai-harvest-manager.tar.gz
+
 # build our own code first
 COPY . /tmp
 RUN cd /tmp && \
     mvn clean package
 
 WORKDIR /tmp/oai
-RUN tar -xzf /tmp/target/harvest-manager-*.tar.gz
-
-# Fetch and unpack the OAI Harvester
-RUN curl -L -o /tmp/oai-harvest-manager.tar.gz https://github.com/clarin-eric/harvest-manager/releases/download/v2.0-RC2/harvest-manager-2.0-RC2-SNAPSHOT.fb13eb.tar.gz && \
-    tar -xzf /tmp/oai-harvest-manager.tar.gz
+RUN tar -xzf /tmp/target/harvest-manager-*.tar.gz && \
+    cp /tmp/target/harvest-manager-*.jar /tmp/oai/lib/
 
 ### Package stage
 

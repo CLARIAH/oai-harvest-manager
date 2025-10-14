@@ -1,4 +1,4 @@
-package nl.mpi.oai.harvester.protocol;
+package nl.clariah.oai.harvester.protocol;
 
 import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.XdmAtomicValue;
@@ -11,6 +11,7 @@ import nl.mpi.oai.harvester.control.Util;
 import nl.mpi.oai.harvester.cycle.Cycle;
 import nl.mpi.oai.harvester.cycle.Endpoint;
 import nl.mpi.oai.harvester.metadata.Metadata;
+import nl.mpi.oai.harvester.protocol.Protocol;
 import nl.mpi.oai.harvester.utils.DocumentSource;
 import nl.mpi.oai.harvester.utils.MarkableFileInputStream;
 import nl.mpi.tla.util.Saxon;
@@ -24,9 +25,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.mashape.unirest.http.HttpResponse;
-import com.mashape.unirest.http.Unirest;
-import com.mashape.unirest.http.exceptions.UnirestException;
 import org.w3c.dom.Document;
 import org.xml.sax.InputSource;
 
