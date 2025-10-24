@@ -9,14 +9,8 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-<!--        <versionNumber>${project.version}.${buildNumber}</versionNumber>-->
         <versionNumber>2.0-nde</versionNumber>
     </properties>
-
-<!--    <scm>-->
-<!--        <connection>scm:git:https://github.com/clarin-eric/oai-harvest-manager.git</connection>-->
-<!--        <developerConnection>scm:git:https://github.com/clarin-eric/oai-harvest-manager.git</developerConnection>-->
-<!--    </scm>-->
 
     <!-- REPOSITORIES -->
     <repositories>
@@ -180,7 +174,6 @@
                             <Built-By>${user.name}</Built-By>
                             <Built-On>${maven.build.timestamp}</Built-On>
                             <Version>${project.version}</Version>
-<!--                            <Revision>${buildNumber}</Revision>-->
                             <Revision>2.0-nde</Revision>
                             <Class-Path>${project.artifactId}-${versionNumber}.jar</Class-Path>
                             <Class-Path>.</Class-Path>
@@ -216,33 +209,6 @@
                     </execution>
                 </executions>
             </plugin>
-
-            <!-- Add the build number plugin for generating a unique identification
-            for every build. Maven stores the ${buildNumber} variable. Please note
-            that in this project the number is part of the the version number. On
-            its turn, this number is reflected in the jar and the package names. -->
-<!--            <plugin>-->
-<!--                <groupId>org.codehaus.mojo</groupId>-->
-<!--                <artifactId>buildnumber-maven-plugin</artifactId>-->
-<!--                <version>1.4</version>-->
-<!--                <executions>-->
-<!--                    <execution>-->
-<!--                        <phase>validate</phase>-->
-<!--                        <goals>-->
-<!--                            <goal>create</goal>-->
-<!--                        </goals>-->
-<!--                        <configuration>-->
-<!--                            <revisionOnScmFailure>none</revisionOnScmFailure>-->
-<!--                            <shortRevisionLength>6</shortRevisionLength>-->
-<!--                        </configuration>-->
-<!--                    </execution>-->
-<!--                </executions>-->
-<!--                <configuration>-->
-<!--                    <doCheck>false</doCheck>-->
-<!--                    <doUpdate>false</doUpdate>-->
-<!--                </configuration>-->
-<!--            </plugin>-->
-
 
             <!-- Add and configure the plugin for Findbugs. You can run the Findbugs
             gui as the findbugs:gui target. For more information Findbugs, refer to
