@@ -132,7 +132,7 @@ public class SdEditorProtocol extends Protocol {
 
             for (int i = 1; i <= 100; i++) {
                 String recordUrl = restEndpoint + "/" + i + ".xml";
-                logger.info("Fetching record from REST endpoint: " + recordUrl);
+                logger.info("Fetching record from REST endpoint: {} with token {}", recordUrl, bearerToken);
 
                 HttpRequest request = HttpRequest.newBuilder()
                         .uri(java.net.URI.create(recordUrl))
@@ -152,11 +152,18 @@ public class SdEditorProtocol extends Protocol {
                     DocumentSource src = new DocumentSource(
                             new java.io.ByteArrayInputStream(response.body().getBytes(java.nio.charset.StandardCharsets.UTF_8))
                     );
+                    logger.info("Successfully fetched record {} from REST endpoint.", i);
+                    try (java.io.InputStream is = src.getStream()) {
+                        String xml = new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                        logger.info("DocumentSource content:\n" + xml);
+                    } catch (IOException e) {
+                        logger.error("Failed to read DocumentSource content", e);
+                    }
 
                     logger.info("Size of actionSequences is: " + actionSequences.size());
                     for (final ActionSequence actionSequence : actionSequences) {
                         logger.info("Action sequence is: " + actionSequence.toString());
-                        actionSequence.runActions(new Metadata(provider.getName(), "sdeditor", src, provider, true, true));
+                        actionSequence.runActions(new Metadata(provider.getName() + "-" + i, "sdeditor", src, provider, true, true));
                     }
                 } catch (Exception e) {
                     logger.warn("Failed to fetch or process record {}: {}", i, e.getMessage());
