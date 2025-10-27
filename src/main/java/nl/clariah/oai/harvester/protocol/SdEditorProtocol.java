@@ -153,12 +153,6 @@ public class SdEditorProtocol extends Protocol {
                             new java.io.ByteArrayInputStream(response.body().getBytes(java.nio.charset.StandardCharsets.UTF_8))
                     );
                     logger.info("Successfully fetched record {} from REST endpoint.", i);
-                    try (java.io.InputStream is = src.getStream()) {
-                        String xml = new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
-                        logger.info("DocumentSource content:\n" + xml);
-                    } catch (IOException e) {
-                        logger.error("Failed to read DocumentSource content", e);
-                    }
 
                     logger.info("Size of actionSequences is: " + actionSequences.size());
                     for (final ActionSequence actionSequence : actionSequences) {
