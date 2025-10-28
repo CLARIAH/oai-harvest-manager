@@ -52,15 +52,7 @@ public class OmitEmptyRecordAction implements Action {
 
     private final Logger logger = LogManager.getLogger(OmitEmptyRecordAction.class);
 
-    private final XPath xpath;
-    private final DocumentBuilder db;
-
-    public OmitEmptyRecordAction() throws ParserConfigurationException {
-        XPathFactory xpf = XPathFactory.newInstance();
-        xpath = xpf.newXPath();
-        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-        db = dbf.newDocumentBuilder();
-    }
+    public OmitEmptyRecordAction() throws ParserConfigurationException {}
 
     boolean isRootNull(Document doc) {
         if (doc == null) {
