@@ -97,7 +97,8 @@ public class SdEditorProtocol extends Protocol {
         String map = config.getMapFile();
         String workDir = config.getWorkingDirectory();
         map = workDir + "/" + map;
-        synchronized (map) {
+
+        synchronized (SdEditorProtocol.class) {
             try (PrintWriter m = new PrintWriter(new FileWriter(map, true))) {
                 if (config.hasRegistryReader()) {
                     m.println(config.getRegistryReader().endpointMapping(provider.getOaiUrl(), provider.getName()));
@@ -125,12 +126,12 @@ public class SdEditorProtocol extends Protocol {
         HttpClient client = HttpClient.newHttpClient();
 
         try {
-            if (provider.getNiceDelay() > 0) {
-                logger.info("Being nice: sleeping for ["+provider.getNiceDelay()+"] seconds!");
-                Thread.sleep(provider.getNiceDelay() * 1000L);
-            }
-
             for (int i = 1; i <= 100; i++) {
+                if (provider.getNiceDelay() > 0) {
+                    logger.info("Being nice: sleeping for [{}] seconds!", provider.getNiceDelay());
+                    Thread.sleep(provider.getNiceDelay() * 1000L);
+                }
+                // TODO: URL building is naive and specific to SD Editor instance, better solutions once API gets mature?
                 String recordUrl = restEndpoint + "/" + i + ".xml";
                 logger.info("Fetching record from REST endpoint: {} with token {}", recordUrl, bearerToken);
 
