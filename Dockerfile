@@ -5,7 +5,7 @@ RUN apk --no-cache add maven
 # install OAI Harvester
 # Fetch and unpack the OAI Harvester
 WORKDIR /tmp/oai
-RUN curl -L -o /tmp/oai-harvest-manager.tar.gz https://github.com/clarin-eric/harvest-manager/releases/download/v2.0-RC2/harvest-manager-2.0-RC2-SNAPSHOT.fb13eb.tar.gz && \
+RUN curl -L -o /tmp/oai-harvest-manager.tar.gz https://github.com/clarin-eric/harvest-manager/releases/download/2.0-RC3/harvest-manager-2.0-RC3-SNAPSHOT.7979e5.tar.gz && \
     tar -xzf /tmp/oai-harvest-manager.tar.gz
 
 # build our own code first
