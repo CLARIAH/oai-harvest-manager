@@ -16,7 +16,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.function.Function;
 
-import org.junit.Test;
+
 import org.junit.Rule;
 import org.junit.rules.TemporaryFolder;
 import org.slf4j.Logger;
@@ -29,7 +29,6 @@ public class MainTest {
 
     private final static Logger logger = LoggerFactory.getLogger(MainTest.class);
 
-    private static final String BASIC_CONFIG_WITH_NDE_PROTOCOL = "/config/test-config-nde-protocol.xml";
 
     @Rule
     public TemporaryFolder workdir = new TemporaryFolder();
@@ -44,14 +43,6 @@ public class MainTest {
 //        Main.runHarvesting(config);
 //    }
 
-    @Test
-    public void testRunHarvestingNdeProtocol() throws Exception {
-        // TODO: assert something
-        final Configuration config = readConfig(BASIC_CONFIG_WITH_NDE_PROTOCOL);
-        Main.runHarvesting(config);
-        // TODO: let the test wait for the threads instead of waiting for 5"
-        Thread.sleep(5000);
-    }
 
     private Configuration readConfig(String name) throws Exception {
         final String filename = pathForResource(name);

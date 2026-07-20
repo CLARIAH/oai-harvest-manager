@@ -168,11 +168,6 @@ public class Configuration {
         parseSettings((Node) xpath.evaluate("/config/settings",
                 doc.getDocumentElement(), XPathConstants.NODE));
 
-        // TODO: get sparql query when protocol is Nde, is there a better way?
-        if (settings.get("protocol") != null && settings.get("protocol").contains(".NdeProtocol")) {
-            parseQuery((Node) xpath.evaluate("/config/settings/nde-ListRecords-sparql",
-                    doc.getDocumentElement(), XPathConstants.NODE));
-        }
 
         logger.debug("Reading: outputs");
         // ----- Read list of outputs -----
