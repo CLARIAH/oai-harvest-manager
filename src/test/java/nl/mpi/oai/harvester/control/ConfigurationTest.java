@@ -25,6 +25,7 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import nl.mpi.oai.harvester.Provider;
+import nl.mpi.oai.harvester.StaticProvider;
 import nl.mpi.oai.harvester.action.Action;
 import nl.mpi.oai.harvester.action.ActionSequence;
 import org.apache.commons.io.IOUtils;
@@ -137,6 +138,49 @@ public class ConfigurationTest {
             //should have no sets
             assertNull(prov.get().getSets());
         }
+    }
+
+    @Test
+    public void testImportFromClass() throws Exception {
+        final File configFile = fileForResource("/config/test-config-class-import.xml", testConfigFilter);
+        final Configuration configuration = new Configuration().readConfig(configFile.getAbsolutePath());
+
+        final List<Provider> providers = configuration.getProviders();
+        assertNotNull(providers);
+        // 5 returned by TestProviderImport, 1 filtered out by <exclude>
+        assertEquals(4, providers.size());
+
+        // provider whose URL came from the <import> node's <registry> child:
+        // proves the DOM node was handed to the implementation
+        final Provider fromNode = providers.stream()
+                .filter(p -> "http://from-node.example.org/oai".equals(p.getOaiUrl()))
+                .findAny().orElseThrow(() -> new AssertionError("node-derived provider missing"));
+        assertEquals("From Node", fromNode.getName());
+
+        // DTO overrides honoured (timeout and scenario carried by ImportedProvider)
+        final Provider a = providers.stream()
+                .filter(p -> nl.mpi.oai.harvester.config.TestProviderImport.URL_A.equals(p.getOaiUrl()))
+                .findAny().orElseThrow(() -> new AssertionError("provider A missing"));
+        assertEquals("Provider A", a.getName());
+        assertEquals(99, a.getTimeout());
+        assertEquals("ListRecords", a.getScenario());
+
+        // <config url="..."> override applied on top of the DTO
+        final Provider b = providers.stream()
+                .filter(p -> nl.mpi.oai.harvester.config.TestProviderImport.URL_B.equals(p.getOaiUrl()))
+                .findAny().orElseThrow(() -> new AssertionError("provider B missing"));
+        assertEquals("Renamed B", b.getName());
+        assertEquals("ListIdentifiers", b.getScenario());
+
+        // staticProvider flag -> StaticProvider instance
+        final Provider stat = providers.stream()
+                .filter(p -> nl.mpi.oai.harvester.config.TestProviderImport.URL_STATIC.equals(p.getOaiUrl()))
+                .findAny().orElseThrow(() -> new AssertionError("static provider missing"));
+        assertTrue(stat instanceof StaticProvider);
+
+        // excluded URL filtered out by the shared <exclude> post-processing
+        assertFalse(providers.stream().anyMatch(
+                p -> nl.mpi.oai.harvester.config.TestProviderImport.URL_EXCLUDED.equals(p.getOaiUrl())));
     }
 
     private Configuration getBasicConfig() throws Exception {

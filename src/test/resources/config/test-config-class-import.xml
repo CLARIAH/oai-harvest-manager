@@ -1,0 +1,41 @@
+<!-- Configuration exercising the class-based <import class="..."> path. -->
+<config>
+
+  <!-- ### configuration settings ### -->
+  <settings>
+    <workdir>{{workdir}}</workdir>
+    <max-retry-count>2</max-retry-count>
+    <retry-delay>10</retry-delay>
+    <max-jobs>4</max-jobs>
+    <resource-pool-size>4</resource-pool-size>
+    <timeout>60</timeout>
+    <scenario>ListRecords</scenario>
+    <incremental>false</incremental>
+    <dry-run>false</dry-run>
+  </settings>
+
+  <!-- ### output directories (referenced in the action section) ### -->
+  <directories>
+    <dir path="oai-rec" id="rec" max-files="0"/>
+    <dir path="oai-pmh" id="oai" max-files="0"/>
+  </directories>
+
+  <!-- ### actions to take on metadata formats (in order of preference) ### -->
+  <actions>
+    <format match="namespace" value="http://www.clarin.eu/cmd/1">
+      <action type="save" dir="oai" suffix=".xml"/>
+    </format>
+  </actions>
+
+  <!-- ### list of providers ###
+       The class-based import loads TestProviderImport from the test classpath.
+       The <exclude> and <config> children are processed by Configuration's
+       shared post-processing, exactly like the Centre Registry import path. -->
+  <providers>
+    <import class="nl.mpi.oai.harvester.config.TestProviderImport">
+      <registry url="http://from-node.example.org/oai"/>
+      <exclude url="http://test.example.org/oai-excluded"/>
+      <config url="http://test.example.org/oai-b" scenario="ListIdentifiers" name="Renamed B"/>
+    </import>
+  </providers>
+</config>

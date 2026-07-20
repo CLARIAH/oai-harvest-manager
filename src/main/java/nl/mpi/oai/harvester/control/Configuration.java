@@ -24,6 +24,8 @@ import com.google.common.collect.ImmutableSet;
 import nl.mpi.oai.harvester.Provider;
 import nl.mpi.oai.harvester.StaticProvider;
 import nl.mpi.oai.harvester.action.*;
+import nl.mpi.oai.harvester.config.ImportedProvider;
+import nl.mpi.oai.harvester.config.ProviderImport;
 import nl.mpi.oai.harvester.metadata.MetadataFormat;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -488,12 +490,21 @@ public class Configuration {
             XPathExpressionException,
             ParserConfigurationException {
 
-        // check if there is an import node
-        Node importNode = (Node) xpath.evaluate("./import", base,
-                XPathConstants.NODE);
-        if (importNode == null) {
+        // iterate over all <import> elements: each is either Centre Registry
+        // style (no 'class' attribute) or class-based (<import class="...">).
+        NodeList importNodes = (NodeList) xpath.evaluate("./import", base,
+                XPathConstants.NODESET);
+        if (importNodes.getLength() == 0) {
             logger.debug("No import node in the configuration file");
-        } else {
+        }
+        for (int i = 0; i < importNodes.getLength(); i++) {
+            Node importNode = importNodes.item(i);
+            String importClass = Util.getNodeText(xpath, "./@class", importNode);
+            if (importClass != null) {
+                parseClassImport(importNode, importClass);
+                continue;
+            }
+            // ----- Centre Registry style import (original behaviour) -----
             final Node includeSetTypesNode = (Node) xpath.evaluate("./includeOaiPmhSetTypes", importNode, XPathConstants.NODE);
             final Collection<String> includeSetTypes;
             if (includeSetTypesNode != null) {
@@ -529,40 +540,10 @@ public class Configuration {
                     logger.info("Importing providers from registry at {}", rUrl);
 
                     // list of endpoints to be excluded
-                    ArrayList<String> excludeSpec = new ArrayList<>();
-
-                    // create the list
-                    NodeList excludeList = (NodeList) xpath.evaluate("./exclude", importNode,
-                            XPathConstants.NODESET);
-                    for (int i = 0; i < excludeList.getLength(); i++) {
-                        Node excludeNode = excludeList.item(i);
-
-                        // find exlude node
-                        String eUrl = Util.getNodeText(xpath, "./@url", excludeNode);
-                        if (eUrl == null) {
-                            logger.warn("No URL in exclude specification");
-                        } else {
-                            excludeSpec.add(eUrl);
-                        }
-                    }
+                    ArrayList<String> excludeSpec = parseExcludeList(importNode);
 
                     // list of endpoints to be extra configured
-                    HashMap<String, Node> configMap = new HashMap<>();
-
-                    // create the list
-                    NodeList configList = (NodeList) xpath.evaluate("./config", importNode,
-                            XPathConstants.NODESET);
-                    for (int i = 0; i < configList.getLength(); i++) {
-                        Node configNode = configList.item(i);
-
-                        // find config node
-                        String eUrl = Util.getNodeText(xpath, "./@url", configNode);
-                        if (eUrl == null) {
-                            logger.warn("No URL in config specification");
-                        } else {
-                            configMap.put(eUrl, configNode);
-                        }
-                    }
+                    HashMap<String, Node> configMap = parseConfigMap(importNode);
                     // get the list of endpoints from the centre registry
                     registryReader = new RegistryReader(new java.net.URL(rUrl));
                     final Map<String, Collection<CentreRegistrySetDefinition>> endPointOaiPmhSetMap
@@ -702,6 +683,222 @@ public class Configuration {
                 }
             }
             providers.add(provider);
+        }
+    }
+
+    /**
+     * Read the {@code <exclude url="...">} children of an {@code <import>}
+     * element as a list of endpoint URLs to skip. Shared by the Centre Registry
+     * and class-based import paths.
+     */
+    private ArrayList<String> parseExcludeList(Node importNode) throws XPathExpressionException {
+        ArrayList<String> excludeSpec = new ArrayList<>();
+        NodeList excludeList = (NodeList) xpath.evaluate("./exclude", importNode,
+                XPathConstants.NODESET);
+        for (int i = 0; i < excludeList.getLength(); i++) {
+            Node excludeNode = excludeList.item(i);
+            String eUrl = Util.getNodeText(xpath, "./@url", excludeNode);
+            if (eUrl == null) {
+                logger.warn("No URL in exclude specification");
+            } else {
+                excludeSpec.add(eUrl);
+            }
+        }
+        return excludeSpec;
+    }
+
+    /**
+     * Read the {@code <config url="...">} children of an {@code <import>}
+     * element as a map from endpoint URL to its configuration node. Shared by
+     * the Centre Registry and class-based import paths.
+     */
+    private HashMap<String, Node> parseConfigMap(Node importNode) throws XPathExpressionException {
+        HashMap<String, Node> configMap = new HashMap<>();
+        NodeList configList = (NodeList) xpath.evaluate("./config", importNode,
+                XPathConstants.NODESET);
+        for (int i = 0; i < configList.getLength(); i++) {
+            Node configNode = configList.item(i);
+            String eUrl = Util.getNodeText(xpath, "./@url", configNode);
+            if (eUrl == null) {
+                logger.warn("No URL in config specification");
+            } else {
+                configMap.put(eUrl, configNode);
+            }
+        }
+        return configMap;
+    }
+
+    /**
+     * Handle an {@code <import class="...">} element by reflectively loading the
+     * named {@link ProviderImport} implementation (optionally from a jar given
+     * via the {@code file} attribute), letting it produce providers, then
+     * applying the same {@code <exclude>} / {@code <config>} overrides used by
+     * the Centre Registry path.
+     */
+    private void parseClassImport(Node importNode, String className) throws XPathExpressionException, ParserConfigurationException {
+        String jarLocation = Util.getNodeText(xpath, "./@file", importNode);
+        logger.info("Loading provider import class [" + className + "]"
+                + (jarLocation != null ? " from [" + jarLocation + "]" : " from classpath"));
+
+        ProviderImport importer;
+        try {
+            importer = loadImportClass(jarLocation, className);
+        } catch (Exception e) {
+            logger.error("Cannot load provider import class [" + className + "]", e);
+            return;
+        }
+        if (importer == null) {
+            return;
+        }
+
+        List<ImportedProvider> imported;
+        try {
+            imported = importer.getProviders(importNode);
+        } catch (Exception e) {
+            logger.error("Provider import class [" + className + "] failed to produce providers", e);
+            return;
+        }
+        if (imported == null) {
+            return;
+        }
+
+        final ArrayList<String> excludeSpec = parseExcludeList(importNode);
+        final HashMap<String, Node> configMap = parseConfigMap(importNode);
+
+        for (ImportedProvider ip : imported) {
+            if (ip.url == null) {
+                logger.warn("Imported provider without a URL, skipping");
+                continue;
+            }
+            if (excludeSpec.contains(ip.url)) {
+                logger.debug("Excluding endpoint: " + ip.url);
+                continue;
+            }
+            logger.debug("Including endpoint: " + ip.url);
+
+            Provider provider = ip.staticProvider
+                    ? new StaticProvider(ip.url, getMaxRetryCount(), getRetryDelays())
+                    : new Provider(ip.url, getMaxRetryCount(), getRetryDelays());
+
+            // base values from the import's DTO (falling back to global defaults)
+            applyImportedSettings(provider, ip);
+            // explicit <config url="..."> override wins where present
+            if (configMap.containsKey(ip.url)) {
+                applyProviderConfigOverrides(provider, configMap.get(ip.url));
+            }
+
+            providers.add(provider);
+        }
+    }
+
+    /**
+     * Apply the per-provider overrides carried by an {@link ImportedProvider}
+     * DTO, falling back to the global configuration defaults for any field the
+     * DTO leaves null.
+     */
+    private void applyImportedSettings(Provider provider, ImportedProvider ip) {
+        provider.setTimeout(ip.timeout != null ? ip.timeout : getTimeout());
+        provider.setMaxRetryCount(ip.maxRetryCount != null ? ip.maxRetryCount : getMaxRetryCount());
+        provider.setRetryDelays(ip.retryDelays != null ? ip.retryDelays : getRetryDelays());
+        provider.setExclusive(ip.exclusive != null ? ip.exclusive : false);
+        provider.setIncremental(isIncremental());
+        provider.setScenario(ip.scenario != null ? ip.scenario : getScenario());
+        provider.setNiceDelay(ip.niceDelay != null ? ip.niceDelay : getNiceDelay());
+        if (ip.name != null) {
+            provider.setName(ip.name);
+        }
+        if (ip.sets != null && ip.sets.length > 0) {
+            provider.setSets(ip.sets);
+        }
+    }
+
+    /**
+     * Apply per-endpoint overrides from a {@code <config url="...">} node on top
+     * of an already-initialised provider. Only attributes present on the node
+     * are applied, so previously set values (e.g. from the import DTO) are kept
+     * otherwise.
+     */
+    private void applyProviderConfigOverrides(Provider provider, Node configNode) throws XPathExpressionException {
+        String pScenario = Util.getNodeText(xpath, "./@scenario", configNode);
+        String pTimeout = Util.getNodeText(xpath, "./@timeout", configNode);
+        String pMaxRetryCount = Util.getNodeText(xpath, "./@max-retry-count", configNode);
+        String pRetryDelays = Util.getNodeText(xpath, "./@retry-delay", configNode);
+        String pExclusive = Util.getNodeText(xpath, "./@exclusive", configNode);
+        String pNiceDelay = Util.getNodeText(xpath, "./@nice-delay", configNode);
+        String pName = Util.getNodeText(xpath, "./@name", configNode);
+
+        if (pTimeout != null) {
+            provider.setTimeout(Integer.valueOf(pTimeout));
+        }
+        if (pMaxRetryCount != null) {
+            provider.setMaxRetryCount(Integer.valueOf(pMaxRetryCount));
+        }
+        if (pRetryDelays != null) {
+            provider.setRetryDelays(parseRetryDelays(pRetryDelays));
+        }
+        if (pExclusive != null) {
+            provider.setExclusive(Boolean.parseBoolean(pExclusive));
+        }
+        if (pNiceDelay != null) {
+            provider.setNiceDelay(Integer.valueOf(pNiceDelay));
+        }
+        if (pScenario != null) {
+            provider.setScenario(pScenario);
+        }
+        if (pName != null) {
+            provider.setName(pName);
+        }
+    }
+
+    /**
+     * Load and instantiate a {@link ProviderImport} implementation, either from
+     * the classpath (when {@code file} is null) or from the given jar file.
+     * Mirrors the mechanism used for loading external {@code Action} classes.
+     */
+    private ProviderImport loadImportClass(String file, String className)
+            throws IOException, ClassNotFoundException,
+            InstantiationException, IllegalAccessException,
+            NoSuchMethodException, InvocationTargetException {
+        Class<?> cls;
+        if (file == null) {
+            logger.info("No jar file given, loading from class path;");
+            cls = Class.forName(className);
+        } else {
+            // If not absolute path, get the file from resource folder and replace file with absolute path
+            ClassLoader classLoader = getClass().getClassLoader();
+            File f = new File(file);
+            if (!f.isAbsolute()) {
+                logger.error(file + " is not absolute! Getting absolute path");
+                File newFile = new File(Objects.requireNonNull(classLoader.getResource(file)).getFile());
+                file = newFile.getAbsolutePath();
+                logger.error("Absolute path is [" + file + "]!");
+                f = new File(file);
+            }
+            // if jar file does not exist, continue anyway in the hope that it can still be loaded from ClassPath,
+            // ClassNotFound will be thrown later, if class not found anywhere
+            if (!f.exists()) {
+                logger.error("The given jar file [" + file + "] does not exist!");
+                return null;
+            }
+            // use ArrayList to add URL to Array
+            URL[] urls = new URL[0];
+            ArrayList<URL> urlArrayList = new ArrayList<>(Arrays.asList(urls));
+            urlArrayList.add(new URL("jar:file:" + file + "!/"));
+            urls = urlArrayList.toArray(urls);
+
+            // init class loader from all the JARs
+            URLClassLoader cl = URLClassLoader.newInstance(urls);
+
+            className = className.replace('/', '.');
+            logger.info("Loading class [" + className + "].");
+            cls = cl.loadClass(className);
+        }
+
+        try {
+            return (ProviderImport) cls.getDeclaredConstructor().newInstance();
+        } catch (ClassCastException ex) {
+            logger.error("The given class [" + className + "] is not a valid ProviderImport");
+            return null;
         }
     }
 

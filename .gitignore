@@ -2,8 +2,8 @@ target/
 .idea/
 *.iml
 /target-old/
-run/
-test/
+/run/
+/test/
 
 /nbproject/
 nb-configuration.xml

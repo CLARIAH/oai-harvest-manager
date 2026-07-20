@@ -1,5 +1,6 @@
 module oai.harvest.manager {
     exports nl.mpi.oai.harvester.action;
+    exports nl.mpi.oai.harvester.config;
     exports nl.mpi.oai.harvester.metadata;
     exports nl.mpi.oai.harvester.protocol;
     exports nl.mpi.oai.harvester.utils;
